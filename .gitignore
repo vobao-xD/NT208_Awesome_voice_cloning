@@ -1,0 +1,12 @@
+.venv/
+.cache/
+__pycache__/
+vixtts.log
+_old_reference.py
+_our_voice_sample/
+_output/
+_user_voice_sample/
+.env
+.vscode
+TTS/
+model.pth
