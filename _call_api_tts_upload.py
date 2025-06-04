@@ -4,11 +4,11 @@ import httpx
 from fastapi import HTTPException
 
 def get_user_token():
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMzUyMDE0NkBnbS51aXQuZWR1LnZuIiwiZXhwIjoxNzQ4NjkyMzk0fQ.e9GGNl7slfeE1iyUWnWdk_2vfmpE-JEmYo9msmhqEO0"
+    return "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ0ZXh0LXRvLWV2ZXJ5dGhpbmctYmFja2VuZCIsInN1YiI6InRleHQtdG8tc3BlZWNoLWRlZmF1bHQiLCJ1c2VyX2VtYWlsIjoiMjM1MjAxNDZAZ20udWl0LmVkdS52biIsImlhdCI6MTc0ODg1OTQxNSwiZXhwIjoxNzQ4ODYwMDE1fQ.96RipKMZsjW_l9kNzroZyymXTIe5595zMS5hm26j_SvFTu6nQ0x8Bx7Uw4KkuY13lCg-hZp0Mtyhnb9C6NqvzA"
 
 file = "_our_voice_sample/gia-khanh.wav"
-use_existing_reference = True
-prompt = "tôi là nguyễn đoàn gia khánh nhe anh em, tôi đã bị nhóm trưởng ăn cắp giọng để ăn nói xàm bậy, trước giờ tôi chưa từng chửi thề, mọi người đợi nghe tôi chửi thề nhé"
+use_existing_reference = False
+prompt = "tôi là khánh nhe anh em, tôi đã bị nhóm trưởng ăn cắp giọng để ăn nói xàm bậy, trước giờ tôi chưa từng chửi thề, mọi người đợi nghe tôi chửi thề nhé"
 
 # Tạo client với timeout lâu
 client = httpx.Client(timeout=600.0)  # Timeout 10 phút
@@ -20,7 +20,7 @@ try:
         files = {"file": open(file, "rb")}
     
     response = client.post(
-        "http://localhost:5000/tts/upload",
+        "http://localhost:9999/custom-tts",
         headers={"Authorization": token},
         data={
             "prompt": prompt,

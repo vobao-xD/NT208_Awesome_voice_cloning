@@ -14,7 +14,7 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, validator, Field
 import aiofiles
 import uvicorn
-from jose import jwt
+from jose import jwt, JWTError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -90,7 +90,7 @@ class TTSRequest(BaseModel):
 
 class TTSUploadRequest(BaseModel):
     file: Optional[UploadFile] = File(None, description="Audio file (WAV, MP3, FLAC, OGG). Required if use_existing_reference is false."),
-    prompt: str = Form(..., min_length=1, max_length=Config.MAX_TEXT_LENGTH, description="Text to convert to speech"),
+    text: str = Form(..., min_length=1, max_length=Config.MAX_TEXT_LENGTH, description="Text to convert to speech"),
     language: str = Form(default="Tiếng Việt", description="Language for TTS"),
     use_existing_reference: bool = Form(False, description="Set to true to use previously uploaded reference audio"),
     @validator('use_existing_reference')
@@ -144,12 +144,13 @@ def verify_backend_token(
     with open("_ec_public_key.pem", "r") as f:
         public_key = f.read()
     try:
+        logging.info("\n\n\n" + token + "\n\n\n")
         payload = jwt.decode(token, public_key, algorithms=["ES256"], issuer="text-to-everything-backend")
         logging.info(f"\n\n\n---> Verify successfully: {payload}\n\n\n")
         return payload 
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError as e:
+    except JWTError as e:
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
     
 class TTSService:
@@ -272,7 +273,7 @@ class FileUploadService:
             logger.error(f"Failed to save file: {e}")
             raise TTSError(f"Failed to save uploaded file: {str(e)}")
 
-async def validate_file_upload(file: UploadFile = File(...)) -> UploadFile:
+async def validate_file_upload(file: File) -> UploadFile:
     """Validate uploaded file"""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
@@ -379,41 +380,43 @@ def create_app() -> FastAPI:
             logger.error(f"Unexpected error in TTS generation: {e}")
             raise HTTPException(status_code=500, detail="Internal server error during TTS generation")
     
-    @app.post("/custom-tts/", response_model=TTSResponse)
-    async def upload_and_clone(request: Request, TTS_request: TTSUploadRequest):
+    @app.post("/custom-tts", response_model=TTSResponse)
+    async def upload_and_clone(
+        request: Request,
+        file: Optional[UploadFile] = File(None, description="Audio file (WAV, MP3, FLAC, OGG). Required if use_existing_reference is false."),
+        text: str = Form(..., min_length=1, max_length=Config.MAX_TEXT_LENGTH),
+        language: str = Form(default="Tiếng Việt"),
+        use_existing_reference: bool = Form(False)
+    ):
         """Upload voice sample or use existing reference and generate TTS with voice cloning"""
         try:
             # Authentication first!!!!!
             user_data = verify_backend_token(request)
 
             # Validate language
-            if TTS_request.language not in Config.LANGUAGE_CODE_MAP:
+            if language not in Config.LANGUAGE_CODE_MAP:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Unsupported language. Supported: {list(Config.LANGUAGE_CODE_MAP.keys())}"
                 )
             
-            reference_path = FileUploadService.get_user_reference_path(user_data.user_email)
+            reference_path = FileUploadService.get_user_reference_path(user_data["user_email"])
             
             # Check if using existing reference
-            if TTS_request.use_existing_reference:
+            if use_existing_reference:
                 if not Path(reference_path).exists():
                     raise HTTPException(
                         status_code=400,
                         detail="No existing reference audio found for this user. Please upload a new file."
                     )
             else:
-                # Validate and save new file
-                if not TTS_request.file:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="A file is required when use_existing_reference is false. Ensure 'Send Empty Value' is unchecked or provide a valid audio file."
-                    )
-                validated_file = await validate_file_upload(TTS_request.file)
-                reference_path = await FileUploadService.save_uploaded_file(validated_file, user_data.user_email)
+                logging.info(file)
+                validated_file = await validate_file_upload(file)
+                logging.info("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+                reference_path = await FileUploadService.save_uploaded_file(validated_file, user_data["user_email"])
             
             # Generate TTS with reference
-            output_file = await TTSService.run_tts_command(TTS_request.prompt, TTS_request.language, reference_path)
+            output_file = await TTSService.run_tts_command(text, language, reference_path)
             
             return TTSResponse(
                 success=True,
