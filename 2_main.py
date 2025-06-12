@@ -46,6 +46,13 @@ class Config:
             'luuloat': 'model/samples/nu-luu-loat.wav',
             'nhannha': 'model/samples/nu-nhan-nha.wav',
             'default': 'model/samples/nu-nhe-nhang.wav'
+        },
+        'authors': {
+            'bao-vo': 'model/_our_voice_sample/wtf1',
+            'thai-hoc': 'model/_our_voice_sample/nguyen-thai-hoc.wav',
+            'gia-khanh': 'model/_our_voice_sample/gia-khanh.wav',
+            'son-bin': 'model/_our_voice_sample/wtf2',
+            'ngoc-an': 'model/_our_voice_sample/wtf3',
         }
     }
 
@@ -144,9 +151,9 @@ def verify_backend_token(
     with open("_ec_public_key.pem", "r") as f:
         public_key = f.read()
     try:
-        logging.info("\n\n\n" + token + "\n\n\n")
+        # logging.info("\n\n\n---> Received token: " + token + "\n\n\n")
         payload = jwt.decode(token, public_key, algorithms=["ES256"], issuer="text-to-everything-backend")
-        logging.info(f"\n\n\n---> Verify successfully: {payload}\n\n\n")
+        # logging.info(f"\n\n\n---> Verify successfully: {payload}\n\n\n")
         return payload 
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -410,9 +417,7 @@ def create_app() -> FastAPI:
                         detail="No existing reference audio found for this user. Please upload a new file."
                     )
             else:
-                logging.info(file)
                 validated_file = await validate_file_upload(file)
-                logging.info("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
                 reference_path = await FileUploadService.save_uploaded_file(validated_file, user_data["user_email"])
             
             # Generate TTS with reference
