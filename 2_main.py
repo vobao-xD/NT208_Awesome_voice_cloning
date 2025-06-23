@@ -724,7 +724,7 @@ def run_server_with_ngrok():
         
         # Create the app
         app = create_app()
-        ngrok.set_auth_token("2ytfQ0ZfwA62IMiC2krygl2s1xv_3G6JtgvdZ48wPTip51Cyj")
+        ngrok.set_auth_token("2yud9BagMvhVTKT0xGp9cCeVYR1_2zpXjmKkcn6wFEZsfiGXD")
         
         # Start ngrok tunnel
         PORT = 9999
