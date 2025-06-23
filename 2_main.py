@@ -594,7 +594,7 @@ def create_app() -> FastAPI:
         try:
             # Authentication first!!!!!
             # user_data = verify_backend_token(request)
-            user_data["user_email"] = "colab_demo"
+            # user_data["user_email"] = "colab_demo"
 
             # Validate language
             if language not in Config.LANGUAGE_CODE_MAP:
@@ -603,7 +603,7 @@ def create_app() -> FastAPI:
                     detail=f"Unsupported language. Supported: {list(Config.LANGUAGE_CODE_MAP.keys())}"
                 )
             
-            reference_path = FileUploadService.get_user_reference_path(user_data["user_email"])
+            reference_path = FileUploadService.get_user_reference_path("colab_demo_user")
             
             # Check if using existing reference
             if use_existing_reference:
@@ -614,7 +614,7 @@ def create_app() -> FastAPI:
                     )
             else:
                 validated_file = await validate_file_upload(file)
-                reference_path = await FileUploadService.save_uploaded_file(validated_file, user_data["user_email"])
+                reference_path = await FileUploadService.save_uploaded_file(validated_file, "colab_demo_user")
             
             # Generate TTS with reference
             output_file = await TTSService.run_tts_command(text, language, reference_path)

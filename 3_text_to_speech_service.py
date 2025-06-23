@@ -23,7 +23,6 @@ except ImportError as e:
     print("pip install TTS vinorm underthesea unidecode torch torchaudio")
     sys.exit(1)
 
-
 class viXTTSConfig:
     """Configuration class for viXTTS application."""
     
@@ -149,7 +148,8 @@ class viXTTSProcessor:
             
             # Move to GPU if available
             if torch.cuda.is_available():
-                self.model.cuda()
+                # self.model.cuda()
+                self.model = self.model.to(self.device)
                 self.logger.info("Model loaded on GPU")
             else:
                 self.logger.info("Model loaded on CPU")
