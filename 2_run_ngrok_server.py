@@ -17,10 +17,9 @@ import uvicorn
 from jose import jwt, JWTError
 import nest_asyncio
 import threading
-from google.colab.output import eval_js
 from pyngrok import ngrok
 
-# Cấu hình logging (bỏ FileHandler trên Colab)
+# Cấu hình logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -30,15 +29,15 @@ logger = logging.getLogger(__name__)
 
 # Cấu hình (điều chỉnh cho Colab)
 class Config:
-    UPLOAD_FOLDER = "_user_voice_sample"
+    UPLOAD_FOLDER = "/content/user_voice_sample"
     MAX_FILE_SIZE = 16 * 1024 * 1024
     ALLOWED_EXTENSIONS = {'wav', 'mp3', 'flac', 'ogg'}
     MAX_TEXT_LENGTH = 1000
-    TTS_SCRIPT_PATH = "./3_text_to_speech_service.py"
+    TTS_SCRIPT_PATH = "/content/3_text_to_speech_service.py"  # Cần upload file này
     PYTHON_PATH = "python3"
-    USER_VOICE_DIR = "_user_voice_sample"
+    USER_VOICE_DIR = "/content/user_voice_sample"
     DEFAULT_REFERENCE_FILENAME = "reference.wav"
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+    JWT_SECRET_KEY = "your_secret_key"  # Thay bằng key thực tế nếu cần
     JWT_ALGORITHM = "HS256"
 
     VOICE_CONFIGS = {
@@ -135,31 +134,9 @@ class TTSError(Exception):
 class ValidationError(Exception):
     pass
 
-# Hàm này dùng để chạy dự án thực tế, xác thực JWT token bằng publickey. 
-# def verify_backend_token(
-#     request: Request,
-#     token: Optional[str] = None
-# ) -> dict: # issuer, subject, user_email, iat, exp
-#     if not token:
-#         auth_header = request.headers.get("Authorization")
-#         if not auth_header or not auth_header.startswith("Bearer "):
-#             raise HTTPException(status_code=401, detail="Missing Authorization header")
-#         token = auth_header.split(" ")[1]
-#     with open("_ec_public_key.pem", "r") as f:
-#         public_key = f.read()
-#     try:
-#         # logging.info("\n\n\n---> Received token: " + token + "\n\n\n")
-#         payload = jwt.decode(token, public_key, algorithms=["ES256"], issuer="text-to-everything-backend")
-#         # logging.info(f"\n\n\n---> Verify successfully: {payload}\n\n\n")
-#         return payload 
-#     except jwt.ExpiredSignatureError:
-#         raise HTTPException(status_code=401, detail="Token expired")
-#     except JWTError as e:
-#         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
-
 # Authentication (giản lược cho Colab demo)
 def verify_backend_token(request: Request, token: Optional[str] = None) -> dict:
-    return {"user_email": "demo"}
+    return {"user_email": "colab_user"}
 
 class TTSService:
     @staticmethod
@@ -190,7 +167,7 @@ class TTSService:
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd="." 
+                cwd="/content/"
             )
             
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=600)
@@ -415,20 +392,16 @@ async def startup_checks():
         raise
 
 def run_server():
-    nest_asyncio.apply()  # Cho phép chạy asyncio trong Colab
+    nest_asyncio.apply()
     uvicorn.run(create_app(), host="0.0.0.0", port=8000, log_level="info")
 
 def start_ngrok():
     public_url = ngrok.connect(8000)
     print(f"Ngrok tunnel opened at: {public_url}")
     print("API is running. Use the URL above to access it.")
-
+    
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
-
-    import time
-    while True:
-        time.sleep(1)
 
 if __name__ == "__main__":
     try:
