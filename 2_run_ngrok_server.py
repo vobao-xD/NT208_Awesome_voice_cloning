@@ -29,37 +29,37 @@ logger = logging.getLogger(__name__)
 
 # Cấu hình (điều chỉnh cho Colab)
 class Config:
-    UPLOAD_FOLDER = "/content/user_voice_sample"
+    UPLOAD_FOLDER = "user_voice_sample"
     MAX_FILE_SIZE = 16 * 1024 * 1024
     ALLOWED_EXTENSIONS = {'wav', 'mp3', 'flac', 'ogg'}
     MAX_TEXT_LENGTH = 1000
-    TTS_SCRIPT_PATH = "/content/3_text_to_speech_service.py"  # Cần upload file này
+    TTS_SCRIPT_PATH = "3_text_to_speech_service.py"  # Cần upload file này
     PYTHON_PATH = "python3"
-    USER_VOICE_DIR = "/content/user_voice_sample"
+    USER_VOICE_DIR = "user_voice_sample"
     DEFAULT_REFERENCE_FILENAME = "reference.wav"
     JWT_SECRET_KEY = "your_secret_key"  # Thay bằng key thực tế nếu cần
     JWT_ALGORITHM = "HS256"
 
     VOICE_CONFIGS = {
         'male': {
-            'calm': '/content/model/samples/nam-calm.wav',
-            'cham': '/content/model/samples/nam-cham.wav',
-            'nhanh': '/content/model/samples/nam-nhanh.wav',
-            'default': '/content/model/samples/nam-truyen-cam.wav'
+            'calm': 'model/samples/nam-calm.wav',
+            'cham': 'model/samples/nam-cham.wav',
+            'nhanh': 'model/samples/nam-nhanh.wav',
+            'default': 'model/samples/nam-truyen-cam.wav'
         },
         'female': {
-            'calm': '/content/model/samples/nu-calm.wav',
-            'cham': '/content/model/samples/nu-cham.wav',
-            'luuloat': '/content/model/samples/nu-luu-loat.wav',
-            'nhannha': '/content/model/samples/nu-nhan-nha.wav',
-            'default': '/content/model/samples/nu-nhe-nhang.wav'
+            'calm': 'model/samples/nu-calm.wav',
+            'cham': 'model/samples/nu-cham.wav',
+            'luuloat': 'model/samples/nu-luu-loat.wav',
+            'nhannha': 'model/samples/nu-nhan-nha.wav',
+            'default': 'model/samples/nu-nhe-nhang.wav'
         },
         'authors': {
-            'bao-vo': '/content/model/_our_voice_sample/wtf1',
-            'thai-hoc': '/content/model/_our_voice_sample/nguyen-thai-hoc.wav',
-            'gia-khanh': '/content/model/_our_voice_sample/gia-khanh.wav',
-            'son-bin': '/content/model/_our_voice_sample/wtf2',
-            'ngoc-an': '/content/model/_our_voice_sample/wtf3',
+            'bao-vo': 'model/_our_voice_sample/wtf1',
+            'thai-hoc': 'model/_our_voice_sample/nguyen-thai-hoc.wav',
+            'gia-khanh': 'model/_our_voice_sample/gia-khanh.wav',
+            'son-bin': 'model/_our_voice_sample/wtf2',
+            'ngoc-an': 'model/_our_voice_sample/wtf3',
         }
     }
 
@@ -167,7 +167,7 @@ class TTSService:
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd="/content/"
+                cwd=""
             )
             
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=600)
@@ -378,7 +378,7 @@ def create_app() -> FastAPI:
 
 async def startup_checks():
     try:
-        required_dirs = [Config.UPLOAD_FOLDER, "/content/model/samples", "/content/model/_our_voice_sample"]
+        required_dirs = [Config.UPLOAD_FOLDER, "model/samples", "model/_our_voice_sample"]
         for directory in required_dirs:
             Path(directory).mkdir(parents=True, exist_ok=True)
         
