@@ -36,6 +36,9 @@ def install_requirements():
         "passlib[bcrypt]",
         "slowapi",
         "dotenv",
+        "pyngrok",
+        "pydantic",
+        "werkzeug",
         "pyngrok"
     ]
     for lib in requirements:
