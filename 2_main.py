@@ -10,6 +10,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.security import OAuth2PasswordBearer
+from fastapi import FastAPI
+from pyngrok import ngrok
+import threading
 
 from pydantic import BaseModel, validator, Field
 import aiofiles
@@ -48,11 +51,11 @@ class Config:
             'default': 'model/samples/nu-nhe-nhang.wav'
         },
         'authors': {
-            'bao-vo': 'model/_our_voice_sample/wtf1',
-            'thai-hoc': 'model/_our_voice_sample/nguyen-thai-hoc.wav',
-            'gia-khanh': 'model/_our_voice_sample/gia-khanh.wav',
-            'son-bin': 'model/_our_voice_sample/wtf2',
-            'ngoc-an': 'model/_our_voice_sample/wtf3',
+            'bao-vo': 'model/_our_voice_sample/chua-co-up',
+            'thai-hoc': 'model/_our_voice_sample/chua-co-up',
+            'gia-khanh': 'model/_our_voice_sample/chua-co-up',
+            'son-bin': 'model/_our_voice_sample/chua-co-up',
+            'ngoc-an': 'model/_our_voice_sample/chua-co-up',
         }
     }
 
@@ -334,21 +337,161 @@ def create_app() -> FastAPI:
         )
     
     # Routes
+    # New root endpoint to introduce the API
+    @app.get("/", response_model=dict)
+    async def root():
+        """
+        Endpoint thông tin dự án.
+    
+        Trả về thông tin cơ bản về dự án Ultimate Voice Cloning bao gồm tên dự án,
+        tác giả, mô tả chức năng và hướng dẫn sử dụng.
+        
+        Returns:
+            dict: Thông tin dự án với các trường:
+                - Project name: Tên dự án
+                - Author: Thông tin tác giả
+                - Description: Mô tả chi tiết dự án
+                - Lưu ý quan trọng: Hướng dẫn sử dụng kết quả API
+                - For testing purpose: Link tài liệu API
+        
+        Example:
+            GET /
+            
+            Response:
+            {
+                "Project name": "Ultimate voice cloning (text to speech)",
+                "Author": "Võ Quốc Bảo - 23520146 - NT208.P23.ANTT",
+                ...
+            }
+        """
+        intro = {
+            "Project name": "Ultimate voice cloning (text to speech)",
+            "Author": "Võ Quốc Bảo - 23520146 - NT208.P23.ANTT",
+            "Description": "Đây là dự án text to speech với hai chức năng cơ bản: text to speech với giọng mặc định (1) và text to speech với giọng tùy chỉnh (2). Dự án được chạy bằng Uvicorn (FastAPI - Python). ",
+            "### Lưu ý quan trọng trước khi test ###": "Kết quả của API tts và voice cloning sẽ là một đường link có dạng _outputs/.... Hãy dán đường dẫn đó vào /audio/{filename} để lấy file. Sau đó bấm download để tải file về và test." ,
+            "For testing purpose": "Truy cập vào https://<ngrok-url>/docs để xem tài liệu chi tiết về các API (input, output, structure, usage,...).",
+            }
+        return intro
+
     @app.get("/health", response_model=HealthResponse)
     async def health_check(request: Request):
-        verify_backend_token(request)
-        """Health check endpoint"""
+        # verify_backend_token(request)
+        """
+        Kiểm tra trạng thái sức khỏe của ứng dụng.
+        
+        Endpoint này được sử dụng để monitoring và health check, trả về trạng thái
+        hoạt động hiện tại của dịch vụ cùng với timestamp.
+        
+        Args:
+            request (Request): HTTP request object
+        
+        Returns:
+            HealthResponse: Đối tượng chứa thông tin sức khỏe:
+                - status (str): Trạng thái dịch vụ ("healthy")
+                - timestamp (str): Thời gian kiểm tra (ISO format)
+        
+        Example:
+            GET /health
+            
+            Response:
+            {
+                "status": "healthy",
+                "timestamp": "2024-01-15T10:30:00.123456"
+            }
+        """
         return HealthResponse(
             status="healthy",
             timestamp=datetime.datetime.now().isoformat()
         )
     
+    @app.get("/availible-resources")
+    async def get_available_resources(request: Request):
+        """
+        Lấy danh sách tài nguyên có sẵn của ứng dụng.
+        
+        Trả về thông tin về các giọng nói hỗ trợ, ngôn ngữ và định dạng file
+        được phép upload để client có thể validate trước khi gọi API.
+        
+        Args:
+            request (Request): HTTP request object
+        
+        Returns:
+            dict: Thông tin tài nguyên có sẵn:
+                - voices (dict): Cấu hình các giọng nói hỗ trợ
+                - supported_languages (dict): Danh sách ngôn ngữ được hỗ trợ
+                - allowed_file_types (list): Các định dạng file âm thanh được phép
+        
+        Example:
+            GET /availible-resources
+            
+            Response:
+            {
+                "voices": {...},
+                "supported_languages": {...},
+                "allowed_file_types": [".wav", ".mp3", ".flac", ".ogg"]
+            }
+        """
+        # verify_backend_token(request)
+        return {
+            "voices": Config.VOICE_CONFIGS,
+            "supported_languages": Config.VOICE_CONFIGS,
+            "allowed_file_types": list(Config.ALLOWED_EXTENSIONS)
+        }
+
     @app.post("/tts", response_model=TTSResponse)
     async def generate_tts(request: Request, TTS_request: TTSRequest):
-        """Generate TTS audio from text"""
+        """
+        Chuyển đổi văn bản thành giọng nói với giọng mặc định.
+        
+        Endpoint này sử dụng các giọng nói có sẵn trong hệ thống để tạo ra file
+        âm thanh từ văn bản đầu vào. Hỗ trợ nhiều ngôn ngữ, giới tính và phong cách giọng nói.
+        
+        Args:
+            request (Request): HTTP request object
+            TTS_request (TTSRequest): Dữ liệu yêu cầu TTS gồm:
+                - text (str): Văn bản cần chuyển đổi (1-1000 ký tự)
+                - language (str): Ngôn ngữ (mặc định: "Tiếng Việt")
+                - gender (str): Giới tính ("male" hoặc "female")
+                - style (str): Phong cách giọng nói:
+                    * Nam: ["calm", "cham", "nhanh", "default"]
+                    * Nữ: ["calm", "cham", "luuloat", "nhannha", "default"]
+        
+        Returns:
+            TTSResponse: Kết quả chuyển đổi:
+                - success (bool): Trạng thái thành công
+                - file_path (str): Đường dẫn file âm thanh (dạng "_output/filename.wav")
+                - timestamp (str): Thời gian tạo file (ISO format)
+        
+        Raises:
+            HTTPException: 
+                - 400: Ngôn ngữ hoặc phong cách không hỗ trợ
+                - 500: Lỗi nội bộ trong quá trình tạo giọng
+                - 504: Timeout (quá 10 phút xử lý)
+        
+        Note:
+            - Sử dụng file_path với endpoint /audio/{filename} để tải file
+            - Thời gian xử lý có thể lên đến 10 phút
+            - File âm thanh được lưu trong thư mục _output/
+        
+        Example:
+            POST /tts
+            {
+                "text": "Xin chào, đây là giọng nói tổng hợp",
+                "language": "Tiếng Việt",
+                "gender": "female",
+                "style": "calm"
+            }
+            
+            Response:
+            {
+                "success": true,
+                "file_path": "_output/generated_123456.wav",
+                "timestamp": "2024-01-15T10:30:00.123456"
+            }
+        """
         try:
             # Authentication first!
-            verify_backend_token(request)
+            # verify_backend_token(request)
 
             # Validate language
             if TTS_request.language not in Config.LANGUAGE_CODE_MAP:
@@ -395,10 +538,63 @@ def create_app() -> FastAPI:
         language: str = Form(default="Tiếng Việt"),
         use_existing_reference: bool = Form(False)
     ):
-        """Upload voice sample or use existing reference and generate TTS with voice cloning"""
+        """
+        Tạo giọng nói tùy chỉnh bằng công nghệ voice cloning.
+        
+        Endpoint này cho phép người dùng tạo giọng nói từ văn bản bằng cách sử dụng
+        mẫu giọng nói tùy chỉnh. Hỗ trợ upload file âm thanh mới hoặc sử dụng lại
+        mẫu giọng đã upload trước đó.
+        
+        Args:
+            request (Request): HTTP request object
+            file (Optional[UploadFile]): File âm thanh làm mẫu giọng:
+                - Định dạng: WAV, MP3, FLAC, OGG
+                - Kích thước tối đa: 16MB
+                - Chất lượng cao cho kết quả tốt hơn
+                - Bắt buộc nếu use_existing_reference=False
+            text (str): Văn bản cần chuyển đổi (1-1000 ký tự)
+            language (str): Ngôn ngữ (mặc định: "Tiếng Việt")
+            use_existing_reference (bool): Sử dụng lại mẫu giọng đã upload (mặc định: False)
+        
+        Returns:
+            TTSResponse: Kết quả voice cloning:
+                - success (bool): Trạng thái thành công
+                - file_path (str): Đường dẫn file âm thanh (dạng "_output/cloned_*.wav")
+                - timestamp (str): Thời gian tạo file (ISO format)
+        
+        Raises:
+            HTTPException:
+                - 400: Ngôn ngữ không hỗ trợ hoặc không có mẫu giọng tham chiếu
+                - 413: File upload quá lớn (>16MB)
+                - 500: Lỗi nội bộ trong quá trình clone giọng
+                - 504: Timeout (quá 10 phút xử lý)
+        
+        Note:
+            - Chất lượng file âm thanh mẫu càng cao, kết quả voice cloning càng tốt
+            - Sử dụng file_path với endpoint /audio/{filename} để tải file
+            - Thời gian xử lý có thể lên đến 10 phút
+            - Mỗi user có thể lưu một mẫu giọng để tái sử dụng
+        
+        Example:
+            POST /custom-tts
+            Content-Type: multipart/form-data
+            
+            file: [audio_sample.wav]
+            text: "Đây là giọng nói được clone từ mẫu"
+            language: "Tiếng Việt"
+            use_existing_reference: false
+            
+            Response:
+            {
+                "success": true,
+                "file_path": "_output/cloned_123456.wav",
+                "timestamp": "2024-01-15T10:30:00.123456"
+            }
+        """
         try:
             # Authentication first!!!!!
-            user_data = verify_backend_token(request)
+            # user_data = verify_backend_token(request)
+            user_data["user_email"] = "colab_demo"
 
             # Validate language
             if language not in Config.LANGUAGE_CODE_MAP:
@@ -440,10 +636,45 @@ def create_app() -> FastAPI:
     
     @app.get("/audio/{filename:path}")
     async def serve_audio(filename: str, request: Request):
-        """Serve generated audio files"""
+        """
+        Phục vụ file âm thanh đã được tạo ra.
+        
+        Endpoint này cung cấp quyền truy cập vào các file âm thanh được tạo bởi
+        các API TTS và voice cloning. Chỉ cho phép truy cập file trong thư mục _output.
+        
+        Args:
+            filename (str): Đường dẫn tương đối đến file âm thanh
+                - Phải bắt đầu bằng "_output/"
+                - Ví dụ: "_output/generated_123456.wav"
+            request (Request): HTTP request object
+        
+        Returns:
+            FileResponse: File âm thanh với:
+                - Media type: "audio/mpeg"
+                - Header phù hợp để download
+                - Tên file gốc
+        
+        Raises:
+            HTTPException:
+                - 403: Truy cập file ngoài thư mục _output (bảo mật)
+                - 404: File không tồn tại
+                - 500: Lỗi server khi phục vụ file
+        
+        Security:
+            - Chỉ cho phép truy cập file trong thư mục _output
+            - Kiểm tra tồn tại file trước khi phục vụ
+            - Yêu cầu authentication (đã comment)
+        
+        Example:
+            GET /audio/_output/generated_123456.wav
+            
+            Response: Binary audio file với header:
+            Content-Type: audio/mpeg
+            Content-Disposition: attachment; filename="generated_123456.wav"
+        """
         try:
             # Remember, always authentication and authorization first (zero trust)
-            verify_backend_token(request)
+            # verify_backend_token(request)
 
             file_path = Path(filename)
             if not str(file_path).startswith("_output/"):
@@ -464,17 +695,7 @@ def create_app() -> FastAPI:
             logger.error(f"Error serving audio file: {e}")
             raise HTTPException(status_code=500, detail="Failed to serve audio file")
     
-    @app.get("/voices")
-    async def get_available_voices(request: Request):
-        """Get available voice configurations"""
-        verify_backend_token(request)
-        return {
-            "voices": Config.VOICE_CONFIGS,
-            "supported_languages": Config.LANGUAGE_CODE_MAP,
-            "max_text_length": Config.MAX_TEXT_LENGTH,
-            "allowed_file_types": list(Config.ALLOWED_EXTENSIONS)
-        }
-    
+
     return app
 
 async def startup_checks():
@@ -495,30 +716,57 @@ async def startup_checks():
         logger.error(f"Startup checks failed: {e}")
         sys.exit(1)
 
-def main():
-    """Main application entry point"""
+def run_server_with_ngrok():
+    """Run server with ngrok tunnel for Colab"""
     try:
         # Run startup checks
         asyncio.run(startup_checks())
         
-        # app = create_app()
+        # Create the app
+        app = create_app()
+        ngrok.set_auth_token("2ytfQ0ZfwA62IMiC2krygl2s1xv_3G6JtgvdZ48wPTip51Cyj")
         
-        # Use uvicorn as ASGI server
+        # Start ngrok tunnel
+        PORT = 9999
+        public_url = ngrok.connect(PORT)
+        print(f"\n\n\n🚀 FastAPI server is publicly available at: {public_url}\n\n\n")
+        
+        # Run the server
         uvicorn.run(
-            "2_main:create_app",
-            host="127.0.0.1",
-            port=9999,
+            app,
+            host="0.0.0.0",
+            port=PORT,
             log_level="info",
-            access_log=True,
-            reload=True,  # Set to True for development
-            factory=True
+            access_log=True
         )
-
-        logger.info("Starting viXTTS FastAPI application...")
         
     except Exception as e:
-        logger.error(f"Failed to start application: {e}")
+        logger.error(f"Failed to start application with ngrok: {e}")
         sys.exit(1)
 
+# Tạm thời không dùng vì đã chạy bằng ngrok 
+# def main():
+#     """Main application entry point"""
+#     try:
+#         # Run startup checks
+#         asyncio.run(startup_checks())
+        
+#         # Use uvicorn as ASGI server (without ngrok)
+#         uvicorn.run(
+#             "2_main:create_app",
+#             host="127.0.0.1",
+#             port=9999,
+#             log_level="info",
+#             access_log=True,
+#             reload=True,  # Set to True for development
+#             factory=True
+#         )
+
+#         logger.info("Starting viXTTS FastAPI application...")
+        
+#     except Exception as e:
+#         logger.error(f"Failed to start application: {e}")
+#         sys.exit(1)
+
 if __name__ == "__main__":
-    main()
+    run_server_with_ngrok()
