@@ -1,11 +1,9 @@
-# Note: file này chưa hoàn thiện. Chắc chắn mọi người chạy sẽ gặp lỗi. Cứ tự fix nha, khi nào rảnh tui viết lại sao :))
-
 import subprocess
 import sys
 import os
 from pathlib import Path
 from setuptools import setup, find_packages
-# from huggingface_hub import snapshot_download
+from huggingface_hub import snapshot_download
 
 def run_command(command, error_message="Command failed"):
     """Chạy lệnh và xử lý lỗi."""
@@ -84,21 +82,11 @@ def download_model():
 def main():
     """Hàm chính để thực hiện thiết lập dự án."""
     print("===== Bắt đầu thiết lập dự án viXTTS =====")
-    # check_and_install_prerequisites()
-    # if sys.platform == "win32":
-    #     python_path = str(Path(".venv") / "Scripts" / "python.exe")
-    # else:
-    #     python_path = str(Path(".venv") / "bin" / "python")
     install_requirements()
-    # clone_and_install_tts_repo(pip_path)
+    clone_and_install_tts_repo(pip_path)
     download_unidic_data()
-    # download_model()
+    download_model()
     print("\n=====> Hoàn tất cài đặt! Để chạy ứng dụng, kích hoạt môi trường ảo:")
-    if sys.platform == "win32":
-        print("    .venv\\Scripts\\activate")
-    else:
-        print("    source .venv/bin/activate")
-    print("Sau đó chạy: python 2_main.py")
 
 if __name__ == "__main__":
     main()
