@@ -74,7 +74,6 @@ def download_model():
 def main():
     """Hàm chính để thực hiện thiết lập dự án."""
     print("===== Bắt đầu thiết lập dự án viXTTS trên Google Colab =====")
-    check_and_install_prerequisites()
     install_requirements()
     clone_and_install_tts_repo()
     download_unidic_data()
